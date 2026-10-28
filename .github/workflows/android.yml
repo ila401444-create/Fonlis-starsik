@@ -1,14 +1,16 @@
-
 name: Build Android APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches:
+      - main
+      - master
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -59,9 +61,13 @@ jobs:
         run: godot --headless --editor --path . --quit
 
       - name: Install Android build template
-        run: godot --headless --path . --install-android-build-template
+        timeout-minutes: 3
+        run: |
+          mkdir -p android
+          godot --headless --path . --install-android-build-template
 
       - name: Export APK
+        timeout-minutes: 5
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           JAVA_HOME: ${{ env.JAVA_HOME }}
