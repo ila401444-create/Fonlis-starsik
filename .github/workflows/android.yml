@@ -1,3 +1,4 @@
+
 name: Build Android APK
 
 on:
@@ -10,10 +11,10 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -24,10 +25,8 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-33 build-tools;33.0.2'
 
-      - name: Install Android SDK packages
-        run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses || true
 
       - name: Install Godot 4.3
         run: |
@@ -37,44 +36,42 @@ jobs:
           sudo mv Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
           godot --version
 
-      - name: Install matching export templates
+      - name: Install Godot export templates
         run: |
           mkdir -p ~/.local/share/godot/export_templates/4.3.stable
           wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
           unzip -q Godot_v4.3-stable_export_templates.tpz -d /tmp/godot-templates
-          cp /tmp/godot-templates/templates/android_debug.apk ~/.local/share/godot/export_templates/4.3.stable/
-          cp /tmp/godot-templates/templates/android_release.apk ~/.local/share/godot/export_templates/4.3.stable/
-          cp /tmp/godot-templates/templates/android_source.zip ~/.local/share/godot/export_templates/4.3.stable/
-          echo "4.3.stable" > ~/.local/share/godot/export_templates/4.3.stable/version.txt
+          cp /tmp/godot-templates/templates/* ~/.local/share/godot/export_templates/4.3.stable/
 
-      - name: Configure Android environment
+      - name: Configure debug signing
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           mkdir -p ~/.android
           keytool -genkeypair -v \
             -keystore ~/.android/debug.keystore \
             -storepass android \
             -alias androiddebugkey \
             -keypass android \
-            -keyalg RSA -keysize 2048 \
+            -keyalg RSA \
+            -keysize 2048 \
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Import Godot project
+      - name: Check project files
         run: |
-          godot --headless --editor --path project --quit
+          test -f project.godot || (echo "ERROR: project.godot is missing from repository root"; exit 1)
+          test -f export_presets.cfg || (echo "ERROR: export_presets.cfg is missing from repository root"; exit 1)
+          ls -la
+
+      - name: Import Godot project
+        run: godot --headless --editor --path . --quit
 
       - name: Export APK
-        run: |
-          mkdir -p build
-          godot --headless --path project \
-            --export-debug "Android" build/FonlisStars.apk
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           JAVA_HOME: ${{ env.JAVA_HOME }}
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
-          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
-          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/FonlisStars.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
