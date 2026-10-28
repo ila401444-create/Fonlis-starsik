@@ -95,13 +95,34 @@ jobs:
       - name: Import project
         run: godot --headless --editor --path . --quit
 
+      
       - name: Export APK
         timeout-minutes: 8
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
+          echo "=== Export preset ==="
+          cat export_presets.cfg
+
+          echo "=== Android template ==="
+          ls -la "$HOME/.local/share/godot/export_templates/4.3.stable/"
+
+          echo "=== Export APK ==="
           mkdir -p build
-          godot --headless --path . \
-            --export-debug "Android" build/FonlisStars.apk
+          godot --headless --verbose --path . \
+            --export-debug "Android" build/FonlisStars.apk 2>&1 | tee export.log
+
+          result=${PIPESTATUS[0]}
+          if [ "$result" -ne 0 ]; then
+            echo "=== Export diagnostics ==="
+            grep -i -E 'error|invalid|missing|android|keystore|template' export.log || true
+            exit "$result"
+          fi
+
           test -s build/FonlisStars.apk
+
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
