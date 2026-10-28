@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Java
@@ -25,10 +25,10 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-33 build-tools;33.0.2'
 
-      - name: Accept Android SDK licenses
+      - name: Accept Android licenses
         run: yes | sdkmanager --licenses || true
 
-      - name: Install Godot 4.3
+      - name: Install Godot
         run: |
           wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
           unzip -q Godot_v4.3-stable_linux.x86_64.zip
@@ -36,42 +36,42 @@ jobs:
           sudo mv Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot
           godot --version
 
-      - name: Install Godot export templates
+      - name: Install export templates
         run: |
           mkdir -p ~/.local/share/godot/export_templates/4.3.stable
           wget -q https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz
           unzip -q Godot_v4.3-stable_export_templates.tpz -d /tmp/godot-templates
           cp /tmp/godot-templates/templates/* ~/.local/share/godot/export_templates/4.3.stable/
 
-      - name: Configure debug signing
+      - name: Create debug keystore
         run: |
           mkdir -p ~/.android
-          keytool -genkeypair -v \
+          keytool -genkeypair -noprompt \
             -keystore ~/.android/debug.keystore \
             -storepass android \
             -alias androiddebugkey \
             -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
+            -keyalg RSA -keysize 2048 \
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Check project files
-        run: |
-          test -f project.godot || (echo "ERROR: project.godot is missing from repository root"; exit 1)
-          test -f export_presets.cfg || (echo "ERROR: export_presets.cfg is missing from repository root"; exit 1)
-          ls -la
-
-      - name: Import Godot project
+      - name: Import project
         run: godot --headless --editor --path . --quit
+
+      - name: Install Android build template
+        run: godot --headless --path . --install-android-build-template
 
       - name: Export APK
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
           JAVA_HOME: ${{ env.JAVA_HOME }}
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         run: |
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/FonlisStars.apk
+          godot --headless --path . \
+            --export-debug "Android" build/FonlisStars.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
