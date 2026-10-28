@@ -1,0 +1,31 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Show Godot version
+        run: godot --version
+      - name: Install Android export templates
+        run: |
+          mkdir -p ~/.config/godot
+          godot --headless --editor --path . --quit || true
+      - name: Export APK
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/FonlisStars.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FonlisStars-debug-apk
+          path: build/FonlisStars.apk
+          if-no-files-found: error
